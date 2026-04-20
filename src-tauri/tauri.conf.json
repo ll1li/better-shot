@@ -27,6 +27,13 @@
     },
     "macOSPrivateApi": false
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["better-shot"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

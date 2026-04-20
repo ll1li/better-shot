@@ -63,9 +63,54 @@ fn show_main_window(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+/// Route a `better-shot://capture?mode=<mode>` URL to the matching frontend event.
+/// Kept in sync with the tray menu event names in `setup()`.
+fn handle_deep_link(app: &tauri::AppHandle, url: &url::Url) {
+    eprintln!("[deep-link] received: {}", url);
+    if url.host_str() != Some("capture") {
+        eprintln!("[deep-link] ignoring non-capture host: {:?}", url.host_str());
+        return;
+    }
+    let mode = url
+        .query_pairs()
+        .find(|(k, _)| k == "mode")
+        .map(|(_, v)| v.into_owned())
+        .unwrap_or_else(|| "region".to_string());
+
+    let event = match mode.as_str() {
+        "region" => "capture-triggered",
+        "screen" | "fullscreen" => "capture-fullscreen",
+        "window" => "capture-window",
+        "ocr" => "capture-ocr",
+        other => {
+            eprintln!("[deep-link] unknown capture mode '{}', ignoring", other);
+            return;
+        }
+    };
+    eprintln!("[deep-link] emitting event: {}", event);
+    let _ = app.emit(event, ());
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // Single-instance guard: second launches (e.g. from `open better-shot://...`)
+    // forward argv to the running instance instead of starting a new process.
+    // The `deep-link` feature on tauri-plugin-single-instance makes it re-emit
+    // the URL event to the already-running app via the deep-link plugin.
+    #[cfg(desktop)]
+    {
+        use tauri::Manager;
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_screenshots::init())
@@ -74,6 +119,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]),
         ))
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             use tauri::menu::{ MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 
@@ -238,6 +284,16 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // Register deep-link handler for better-shot:// URLs (Raycast integration).
+            // Dispatches to the same events the tray menu uses.
+            use tauri_plugin_deep_link::DeepLinkExt;
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    handle_deep_link(&handle, &url);
+                }
+            });
 
             Ok(())
         })

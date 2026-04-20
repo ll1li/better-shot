@@ -30,6 +30,9 @@ tauri-plugin-opener = "2"
 tauri-plugin-screenshots = "2"
 tauri-plugin-store = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+url = "2"
 xcap = "0.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]

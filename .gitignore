@@ -25,3 +25,6 @@ dist-ssr
 
 # Claude Code
 CLAUDE.md
+
+# Local dev-mode .app wrapper (see raycast-scripts/better-shot/README.md)
+dev-bundle/
