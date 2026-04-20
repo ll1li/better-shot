@@ -41,7 +41,7 @@ fn show_main_window(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Er
     } else {
         // Create new window (shouldn't happen normally as we create on startup)
         let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-            .title("Better Shot")
+            .title(&format!("Better Shot{}", DISPLAY_SUFFIX))
             .inner_size(1200.0, 800.0)
             .min_inner_size(800.0, 600.0)
             .center()
@@ -62,6 +62,13 @@ fn show_main_window(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Er
     }
     Ok(())
 }
+
+/// Visual suffix that makes a debug build obvious next to an installed release
+/// (same tray icon, same bundle ID, so users couldn't otherwise tell them apart).
+#[cfg(debug_assertions)]
+const DISPLAY_SUFFIX: &str = " (Dev)";
+#[cfg(not(debug_assertions))]
+const DISPLAY_SUFFIX: &str = "";
 
 /// Route a `better-shot://capture?mode=<mode>` URL to the matching frontend event.
 /// Kept in sync with the tray menu event names in `setup()`.
@@ -142,7 +149,7 @@ pub fn run() {
             // This allows the React frontend to run and set up event listeners
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("Better Shot")
+                    .title(&format!("Better Shot{}", DISPLAY_SUFFIX))
                     .inner_size(1200.0, 800.0)
                     .min_inner_size(800.0, 600.0)
                     .center()
@@ -250,7 +257,7 @@ pub fn run() {
             let _tray = tauri::tray::TrayIconBuilder::new()
                 .menu(&menu)
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("Better Shot")
+                .tooltip(&format!("Better Shot{}", DISPLAY_SUFFIX))
                 .on_menu_event(move |app, event| {
                     match event.id().as_ref() {
                         "open" => {
